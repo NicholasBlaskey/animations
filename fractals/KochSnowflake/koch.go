@@ -192,13 +192,14 @@ func main() {
 	fmt.Println("Starting")
 
 	window := glfwBoilerplate.InitGLFW(title,
-		800, 600, false)
+		500, 500, false)
 	defer glfw.Terminate()
-	gl.LineWidth(2.0)
+	//gl.LineWidth(100.0)
+	gl.Enable(gl.MULTISAMPLE) // Enable anti aliasing
 
 	ourShader := shader.MakeShaders("koch.vs", "koch.fs")
 
-	triangleSize := float32(0.75)
+	triangleSize := float32(1.5)
 	vertices, VAO, VBO := makeBuffers(triangleSize)
 	defer gl.DeleteVertexArrays(1, &VAO)
 	defer gl.DeleteVertexArrays(1, &VBO)
@@ -217,6 +218,27 @@ func main() {
 		gl.Clear(gl.DEPTH_BUFFER_BIT)
 
 		//fmt.Println(len(vertices))
+		scaleF := float32(
+			(math.Sin(float64(glfw.GetTime()*2.0)) * 5) + 10)
+
+		// Actually render the fractal
+		ourShader.Use()
+		ourShader.SetMat4("transform", mgl.Ident4())
+		ourShader.SetMat4("transform", mgl.Scale3D(
+			scaleF, scaleF, 0).Mul4(
+			mgl.Translate3D(0, -1.5, 0)))
+		//ourShader.SetMat4("transform", mgl.Translate3D(0, -1.5, 0))
+		//ourShader.SetMat4("transform", mgl.Scale3D(float32(10-maxIters)/5,
+		//	float32((10-maxIters)/5), 0))
+		//mgl.Translate3D(0, .4, 0)))
+
+		gl.BindVertexArray(VAO)
+		gl.DrawArrays(gl.LINE_LOOP, 0, int32(len(vertices)/pointsPerVertex))
+		//gl.DrawArrays(gl.POINTS, 0, int32(len(vertices)/pointsPerVertex))
+		gl.BindVertexArray(0)
+
+		window.SwapBuffers()
+		glfw.PollEvents()
 
 		if maxIters > 0 {
 			// Update triangle and VBO
@@ -226,15 +248,6 @@ func main() {
 				gl.Ptr(vertices), gl.STATIC_DRAW)
 			gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 		}
-
-		// Actually render the fractal
-		ourShader.Use()
-		gl.BindVertexArray(VAO)
-		gl.DrawArrays(gl.LINE_LOOP, 0, int32(len(vertices)/pointsPerVertex))
-		gl.BindVertexArray(0)
-
-		window.SwapBuffers()
-		glfw.PollEvents()
 
 		maxIters -= 1
 		time.Sleep(0 * time.Second)

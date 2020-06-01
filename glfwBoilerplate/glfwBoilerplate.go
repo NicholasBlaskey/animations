@@ -18,6 +18,8 @@ func InitGLFW(windowTitle string,
 	glfw.WindowHint(glfw.ContextVersionMinor, 1)
 	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
 	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
+
+	glfw.WindowHint(glfw.Samples, 4) // For anti-aliasing
 	window, err := glfw.CreateWindow(
 		width, height, windowTitle, nil, nil)
 	if err != nil {
