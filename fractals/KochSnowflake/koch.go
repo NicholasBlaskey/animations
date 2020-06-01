@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.1/glfw"
-	//	mgl "github.com/go-gl/mathgl/mgl32"
+	mgl "github.com/go-gl/mathgl/mgl32"
 
 	"github.com/nicholasblaskey/go-learn-opengl/includes/shader"
 
@@ -26,6 +26,9 @@ func init() {
 func updateVertices(vertices []float32) []float32 {
 	updatedVertices := []float32{}
 
+	// https://goinbigdata.com/golang-wait-for-all-goroutines-to-finish/
+	// TODO rewrite with concurency in mind
+	// allocate
 	//fmt.Println("STARTING")
 
 	// For each line segment
@@ -87,28 +90,38 @@ func updateVertices(vertices []float32) []float32 {
 			updatedVertices = append(updatedVertices, tos[0][i])
 		}
 
+		// Get third triangle point
+		mid := mgl.Vec2{(froms[1][0] + froms[2][0]) / 2.0,
+			(froms[1][1] + froms[2][1]) / 2.0}
+		orig := mgl.Vec2{(froms[1][0] - mid[0]), (froms[1][1] - mid[1])}
+		orig.Mul(3 * float32(math.Sqrt(3)))
+		transform := mgl.Rotate2D(mgl.DegToRad(90))
+		topTri := mid.Add(transform.Mul2x1(orig))
+
+		// This is bugged (also check with the thing)
 		// TODO rewrite with matrices
 		// Add in the middle two segments
 		// https://stackoverflow.com/questions/50547068/creating-an-equilateral-triangle-for-given-two-points-in-the-plane-python
-		mid := []float32{froms[1][0] + froms[2][0]/2.0,
-			froms[1][1] + froms[2][1]/2.0}
-		origin := []float32{froms[1][0] - mid[0]*3*float32(math.Sqrt(3)),
-			froms[1][1] - mid[1]*3*float32(math.Sqrt(3))}
-
-		topTri := []float32{mid[0] + origin[1], mid[1] - origin[0], 0, 0, 0}
-		//topTri := []float32{mid[0] - origin[1], mid[1] + origin[0]}
-		// https://stackoverflow.com/questions/43312201/how-to-find-the-third-coordinate-of-an-equilateral-triangle
+		// We need some way to decide which it is. One is to check if the vecs are othogonal which will def work within error?
+		// The other which may or may not work is to see which one is further away from the origin.
+		/*
+			mid := []float32{(froms[1][0] + froms[2][0]) / 2.0,
+				(froms[1][1] + froms[2][1]) / 2.0}
+			origin := []float32{(froms[1][0] - mid[0]) * 3 * float32(math.Sqrt(3)),
+				(froms[1][1] - mid[1]) * 3 * float32(math.Sqrt(3))}
+			//topTri := []float32{mid[0] + origin[1], mid[1] - origin[0], 0, 0, 0}
+			topTri := []float32{mid[0] - origin[1], mid[1] + origin[0], 0, 0, 0}
+		*/
 
 		for i := 0; i < len(froms[0]); i++ {
 			updatedVertices = append(updatedVertices, froms[1][i])
 		}
-		for i := 0; i < len(froms[0]); i++ {
-			updatedVertices = append(updatedVertices, topTri[i])
-		}
-
-		for i := 0; i < len(froms[0]); i++ {
-			updatedVertices = append(updatedVertices, topTri[i])
-		}
+		updatedVertices = append(updatedVertices, topTri[0], topTri[1],
+			froms[1][2]+froms[2][2], froms[1][3]+froms[2][3],
+			froms[1][4]+froms[2][4])
+		updatedVertices = append(updatedVertices, topTri[0], topTri[1],
+			froms[1][2]+froms[2][2], froms[1][3]+froms[2][3],
+			froms[1][4]+froms[2][4])
 		for i := 0; i < len(froms[0]); i++ {
 			updatedVertices = append(updatedVertices, froms[2][i])
 		}
@@ -181,16 +194,19 @@ func main() {
 	window := glfwBoilerplate.InitGLFW(title,
 		800, 600, false)
 	defer glfw.Terminate()
+	gl.LineWidth(2.0)
 
 	ourShader := shader.MakeShaders("koch.vs", "koch.fs")
 
-	triangleSize := float32(0.5)
+	triangleSize := float32(0.75)
 	vertices, VAO, VBO := makeBuffers(triangleSize)
 	defer gl.DeleteVertexArrays(1, &VAO)
 	defer gl.DeleteVertexArrays(1, &VBO)
 
 	lastTime := 0.0
 	numFrames := 0.0
+
+	maxIters := 7
 	for !window.ShouldClose() {
 		// Preframe
 		lastTime, numFrames = glfwBoilerplate.DisplayFrameRate(
@@ -202,12 +218,14 @@ func main() {
 
 		//fmt.Println(len(vertices))
 
-		// Update triangle and VBO
-		vertices = updateVertices(vertices)
-		gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
-		gl.BufferData(gl.ARRAY_BUFFER, len(vertices)*4,
-			gl.Ptr(vertices), gl.STATIC_DRAW)
-		gl.BindBuffer(gl.ARRAY_BUFFER, 0)
+		if maxIters > 0 {
+			// Update triangle and VBO
+			vertices = updateVertices(vertices)
+			gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
+			gl.BufferData(gl.ARRAY_BUFFER, len(vertices)*4,
+				gl.Ptr(vertices), gl.STATIC_DRAW)
+			gl.BindBuffer(gl.ARRAY_BUFFER, 0)
+		}
 
 		// Actually render the fractal
 		ourShader.Use()
@@ -218,6 +236,7 @@ func main() {
 		window.SwapBuffers()
 		glfw.PollEvents()
 
-		time.Sleep(1 * time.Second)
+		maxIters -= 1
+		time.Sleep(0 * time.Second)
 	}
 }
