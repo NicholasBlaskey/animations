@@ -1,7 +1,6 @@
 package fractals
 
 import (
-	"fmt"
 	"math"
 	"sync"
 
@@ -14,23 +13,18 @@ func UpdateKoch(vertices []float32) []float32 {
 	flattenedVertices := []float32{}
 	verticesOrdered := make([](*[]float32), len(vertices)/5)
 
-	fmt.Println(len(vertices))
 	// For each line segment
 	for i := 0; i < len(vertices); i += 5 {
 		wg.Add(1)
 		curVertex := &[]float32{}
-		go workerKoch(&wg, vertices, curVertex, i/5)
+		go workerKoch(&wg, vertices, curVertex, i)
 		verticesOrdered[i/5] = curVertex
 	}
 	wg.Wait()
 
 	for i := 0; i < len(verticesOrdered); i++ {
-		//fmt.Println("Hello", len(verticesOrdered), verticesOrdered[i])
 		flattenedVertices = append(flattenedVertices, *verticesOrdered[i]...)
 	}
-
-	fmt.Println(flattenedVertices)
-	//panic("lets figure this out")
 	return flattenedVertices
 }
 
@@ -38,8 +32,6 @@ func workerKoch(wg *sync.WaitGroup, vertices []float32,
 	updatedVertices *[]float32, segID int) {
 
 	defer wg.Done()
-	//fmt.Println(segID)
-	//fmt.Println("updated", updatedVertices)
 
 	pointsPerVertex := 5
 	from := vertices[segID : segID+pointsPerVertex]
@@ -83,7 +75,4 @@ func workerKoch(wg *sync.WaitGroup, vertices []float32,
 	// Add in the final segment
 	*updatedVertices = append(*updatedVertices, froms[2]...)
 	*updatedVertices = append(*updatedVertices, to...)
-
-	//fmt.Println(segID)
-	fmt.Println(segID, " segID then len ", len(*updatedVertices), "end of func updated", updatedVertices)
 }

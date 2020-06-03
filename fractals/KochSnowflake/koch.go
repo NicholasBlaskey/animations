@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"runtime"
 	"time"
 
@@ -50,8 +51,11 @@ func makeBuffers(offset float32) ([]float32, uint32, uint32) {
 	return vertices, VAO, VBO
 }
 
-func drawSlowly(window *glfw.Window, title string,
-	vertices []float32, ourShader shader.Shader, VAO, VBO uint32) {
+func drawSlowly(window *glfw.Window, title string, ourShader shader.Shader) {
+	triangleSize := float32(1.5)
+	vertices, VAO, VBO := makeBuffers(triangleSize)
+	defer gl.DeleteVertexArrays(1, &VAO)
+	defer gl.DeleteVertexArrays(1, &VBO)
 
 	lastTime := 0.0
 	numFrames := 0.0
@@ -69,6 +73,7 @@ func drawSlowly(window *glfw.Window, title string,
 		ourShader.Use()
 		ourShader.SetMat4("transform", mgl.Scale3D(0.5, 0.5, 0))
 		gl.BindVertexArray(VAO)
+		//gl.DrawArrays(gl.POINTS, 0, int32(len(vertices)/pointsPerVertex))
 		gl.DrawArrays(gl.LINE_LOOP, 0, int32(len(vertices)/pointsPerVertex))
 		gl.BindVertexArray(0)
 
@@ -89,13 +94,84 @@ func drawSlowly(window *glfw.Window, title string,
 	}
 }
 
-func slowZoom(window *glfw.Window, title string,
-	vertices []float32, ourShader shader.Shader, VAO, VBO uint32) {
+func slowZoom(window *glfw.Window, title string, ourShader shader.Shader) {
+
+	triangleSize := float32(1.5)
+	vertices, VAO, VBO := makeBuffers(triangleSize)
+	defer gl.DeleteVertexArrays(1, &VAO)
+	defer gl.DeleteVertexArrays(1, &VBO)
 
 	lastTime := 0.0
 	numFrames := 0.0
-	maxIters := 7
+
+	maxIters := 8
+	for i := 0; i < maxIters; i++ {
+		fmt.Println(i)
+		fmt.Println(len(vertices))
+		vertices = fractals.UpdateKoch(vertices)
+	}
+	fmt.Println("loop ended")
+
+	gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
+	gl.BufferData(gl.ARRAY_BUFFER, len(vertices)*4,
+		gl.Ptr(vertices), gl.STATIC_DRAW)
+	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
+	fmt.Println("binded")
+
 	iters := 0
+	for !window.ShouldClose() {
+		iters += 1
+		// Preframe
+		lastTime, numFrames = glfwBoilerplate.DisplayFrameRate(
+			window, title, numFrames, lastTime)
+
+		gl.ClearColor(0.1, 0.1, 0.1, 1.0)
+		gl.Clear(gl.COLOR_BUFFER_BIT)
+		gl.Clear(gl.DEPTH_BUFFER_BIT)
+
+		// Actually render the fractal
+		ourShader.Use()
+		ourShader.SetMat4("transform", mgl.Ident4())
+
+		scaleF := float32(iters) / 2.5
+		ourShader.SetMat4("transform", mgl.Scale3D(
+			scaleF, scaleF, 0).Mul4(
+			mgl.Translate3D(0, -1.5, 0)))
+
+		gl.BindVertexArray(VAO)
+		gl.DrawArrays(gl.LINE_LOOP, 0, int32(len(vertices)/pointsPerVertex))
+		gl.BindVertexArray(0)
+
+		window.SwapBuffers()
+		glfw.PollEvents()
+
+		time.Sleep(0 * time.Second)
+	}
+}
+
+func bounce(window *glfw.Window, title string, ourShader shader.Shader) {
+
+	triangleSize := float32(.15)
+	vertices, VAO, VBO := makeBuffers(triangleSize)
+	defer gl.DeleteVertexArrays(1, &VAO)
+	defer gl.DeleteVertexArrays(1, &VBO)
+
+	lastTime := 0.0
+	numFrames := 0.0
+
+	maxIters := 7
+	for i := 0; i < maxIters; i++ {
+		fmt.Println(i)
+		fmt.Println(len(vertices))
+		vertices = fractals.UpdateKoch(vertices)
+	}
+
+	gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
+	gl.BufferData(gl.ARRAY_BUFFER, len(vertices)*4,
+		gl.Ptr(vertices), gl.STATIC_DRAW)
+	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
+	fmt.Println("binded")
+
 	for !window.ShouldClose() {
 		// Preframe
 		lastTime, numFrames = glfwBoilerplate.DisplayFrameRate(
@@ -109,13 +185,11 @@ func slowZoom(window *glfw.Window, title string,
 		ourShader.Use()
 		ourShader.SetMat4("transform", mgl.Ident4())
 
-		scaleF := float32(iters) / 100.0
-		iters += 1
-		//scaleF := float32(
-		//	(math.Sin(float64(glfw.GetTime()*2.0)) * 5) + 10)
+		scaleF := float32(
+			(math.Sin(float64(glfw.GetTime()*2.0)) * 5) + 10)
 		ourShader.SetMat4("transform", mgl.Scale3D(
 			scaleF, scaleF, 0).Mul4(
-			mgl.Translate3D(0, -1.5, 0)))
+			mgl.Translate3D(0, -0.1, 0)))
 
 		gl.BindVertexArray(VAO)
 		gl.DrawArrays(gl.LINE_LOOP, 0, int32(len(vertices)/pointsPerVertex))
@@ -123,16 +197,6 @@ func slowZoom(window *glfw.Window, title string,
 
 		window.SwapBuffers()
 		glfw.PollEvents()
-
-		if maxIters > 0 && iters%100 == 0 {
-			// Update triangle and VBO
-			vertices = fractals.UpdateKoch(vertices)
-			gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
-			gl.BufferData(gl.ARRAY_BUFFER, len(vertices)*4,
-				gl.Ptr(vertices), gl.STATIC_DRAW)
-			gl.BindBuffer(gl.ARRAY_BUFFER, 0)
-			maxIters -= 1
-		}
 
 		time.Sleep(0 * time.Second)
 	}
@@ -150,12 +214,7 @@ func main() {
 
 	ourShader := shader.MakeShaders("koch.vs", "koch.fs")
 
-	//triangleSize := float32(.75)
-	triangleSize := float32(1.5)
-	vertices, VAO, VBO := makeBuffers(triangleSize)
-	defer gl.DeleteVertexArrays(1, &VAO)
-	defer gl.DeleteVertexArrays(1, &VBO)
-
-	drawSlowly(window, title, vertices, ourShader, VAO, VBO)
-	//slowZoom(window, title, vertices, ourShader, VAO, VBO)
+	//drawSlowly(window, title, ourShader)
+	//slowZoom(window, title, ourShader)
+	bounce(window, title, ourShader)
 }
