@@ -11,34 +11,35 @@ import (
 func UpdateKoch(vertices []float32) []float32 {
 	var wg sync.WaitGroup
 
-	flattenedVertices := make([]float32, len(vertices)*4)
-	verticesOrdered := make([][]float32, len(vertices)/5)
+	flattenedVertices := []float32{}
+	verticesOrdered := make([](*[]float32), len(vertices)/5)
 
 	fmt.Println(len(vertices))
 	// For each line segment
 	for i := 0; i < len(vertices); i += 5 {
 		wg.Add(1)
-		curVertex := []float32{0}
+		curVertex := &[]float32{}
 		go workerKoch(&wg, vertices, curVertex, i/5)
 		verticesOrdered[i/5] = curVertex
 	}
 	wg.Wait()
 
 	for i := 0; i < len(verticesOrdered); i++ {
-		fmt.Println("Hello", len(verticesOrdered), verticesOrdered[i])
-		flattenedVertices = append(flattenedVertices, verticesOrdered[i]...)
+		//fmt.Println("Hello", len(verticesOrdered), verticesOrdered[i])
+		flattenedVertices = append(flattenedVertices, *verticesOrdered[i]...)
 	}
 
-	panic("lets figure this out")
+	fmt.Println(flattenedVertices)
+	//panic("lets figure this out")
 	return flattenedVertices
 }
 
 func workerKoch(wg *sync.WaitGroup, vertices []float32,
-	updatedVertices []float32, segID int) {
+	updatedVertices *[]float32, segID int) {
 
 	defer wg.Done()
-	fmt.Println(segID)
-	fmt.Println("updated", updatedVertices)
+	//fmt.Println(segID)
+	//fmt.Println("updated", updatedVertices)
 
 	pointsPerVertex := 5
 	from := vertices[segID : segID+pointsPerVertex]
@@ -72,17 +73,17 @@ func workerKoch(wg *sync.WaitGroup, vertices []float32,
 		froms[1][4] + froms[2][4]}
 
 	// Add in first segment
-	updatedVertices = append(updatedVertices, froms[0]...)
-	updatedVertices = append(updatedVertices, froms[1]...)
+	*updatedVertices = append(*updatedVertices, froms[0]...)
+	*updatedVertices = append(*updatedVertices, froms[1]...)
 	// Add in the triangle segments
-	updatedVertices = append(updatedVertices, froms[1]...)
-	updatedVertices = append(updatedVertices, fullPoint...)
-	updatedVertices = append(updatedVertices, fullPoint...)
-	updatedVertices = append(updatedVertices, froms[2]...)
+	*updatedVertices = append(*updatedVertices, froms[1]...)
+	*updatedVertices = append(*updatedVertices, fullPoint...)
+	*updatedVertices = append(*updatedVertices, fullPoint...)
+	*updatedVertices = append(*updatedVertices, froms[2]...)
 	// Add in the final segment
-	updatedVertices = append(updatedVertices, froms[2]...)
-	updatedVertices = append(updatedVertices, to...)
+	*updatedVertices = append(*updatedVertices, froms[2]...)
+	*updatedVertices = append(*updatedVertices, to...)
 
 	//fmt.Println(segID)
-	//fmt.Println(updatedVertices)
+	fmt.Println(segID, " segID then len ", len(*updatedVertices), "end of func updated", updatedVertices)
 }
