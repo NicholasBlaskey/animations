@@ -84,8 +84,6 @@ func makeFunctionBuffs(params graphParams, fx singleVarFunc,
 		//}
 	}
 
-	fmt.Println(len(vertices) / 5)
-
 	var VAO, VBO uint32
 	gl.GenVertexArrays(1, &VAO)
 	gl.GenBuffers(1, &VBO)
@@ -157,6 +155,75 @@ func makeWeirdBuffs(params graphParams) ([]uint32, []int32) {
 	return funcVAOs, funcVertexCounts
 }
 
+func makeCubicBuffs(params graphParams) ([]uint32, []int32) {
+	params.xRange = mgl.Vec2{-2, 2}
+	params.yRange = mgl.Vec2{-3, 3}
+
+	funcVAOs := []uint32{}
+	funcVertexCounts := []int32{}
+	for i := -400; i < 400; i++ {
+		col := float32((i + 1000) % 20)
+		if col > 10 {
+			col = 1.0
+		} else {
+			col = 0.0
+		}
+
+		funcVAO, _, funcVertexCount := makeFunctionBuffs(params,
+			func(x float32) float32 {
+				return x*x*x + float32(i)*0.005
+			},
+			mgl.Vec3{col, col, col})
+		funcVAOs = append(funcVAOs, funcVAO)
+		funcVertexCounts = append(funcVertexCounts, funcVertexCount)
+	}
+
+	return funcVAOs, funcVertexCounts
+}
+
+func makeCubic2Buffs(params graphParams) ([]uint32, []int32) {
+	params.xRange = mgl.Vec2{-2, 2}
+	params.yRange = mgl.Vec2{-3, 3}
+
+	colVec1 := mgl.Vec3{0.0, 0.8, 0.8}
+	colVec2 := mgl.Vec3{0.8, 0.8, 0.1}
+	colVec3 := mgl.Vec3{0.8, 0.1, 0.8}
+
+	funcVAOs := []uint32{}
+	funcVertexCounts := []int32{}
+	sign := float32(-1.0)
+	for j := 0; j < 2; j++ {
+		if j == 1 {
+			sign = 1.0
+		}
+		for i := -400; i < 400; i++ {
+			if i == 0 {
+				sign = 1.0
+			}
+
+			col := float32((i + 3000) % 30)
+			var colVec mgl.Vec3
+			if col > 20 {
+				colVec = colVec1
+			} else if col > 10 {
+				colVec = colVec2
+			} else {
+				colVec = colVec3
+			}
+
+			funcVAO, _, funcVertexCount := makeFunctionBuffs(params,
+				func(x float32) float32 {
+					return sign*x*x*x + float32(i)*0.09
+				},
+				colVec)
+			funcVAOs = append(funcVAOs, funcVAO)
+			funcVertexCounts = append(funcVertexCounts, funcVertexCount)
+		}
+	}
+
+	return funcVAOs, funcVertexCounts
+}
+
 func main() {
 	title := "2D graping"
 	fmt.Println("Starting")
@@ -179,9 +246,13 @@ func main() {
 	ourShader := shader.MakeShaders("2D.vs", "2D.fs")
 	axisVAO, axisVBO, axisVertexCount := makeAxisBuffs(params)
 
+	// TODO non centered axis
+	//funcVAOs, funcVertexCounts := makeNonCenteredAxisBuffs(params)
 	//funcVAOs, funcVertexCounts := makeRibbonBuffs(params)
 	//funcVAOs, funcVertexCounts := makeWaveBuffs(params)
-	funcVAOs, funcVertexCounts := makeWeirdBuffs(params)
+	//funcVAOs, funcVertexCounts := makeCubicBuffs(params)
+	funcVAOs, funcVertexCounts := makeCubic2Buffs(params)
+	//funcVAOs, funcVertexCounts := makeWeirdBuffs(params)
 
 	defer gl.DeleteVertexArrays(1, &axisVAO)
 	defer gl.DeleteVertexArrays(1, &axisVBO)
