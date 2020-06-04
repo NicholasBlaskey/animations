@@ -1,5 +1,3 @@
-// https://en.wikipedia.org/wiki/Koch_snowflake
-
 package main
 
 import (
@@ -35,11 +33,11 @@ func init() {
 	runtime.LockOSThread()
 }
 
-// todo change axis location depending on xRange and yRange
-// FE if yRange is (0, 10) then we need not have lower quads
+// TODO change axis to work with axis ranges being unbalanced
 func makeAxisBuffs(params graphParams) (uint32, uint32, int32) {
 	xCol := params.xAxisColor
 	yCol := params.yAxisColor
+
 	vertices := []float32{
 		// Positions         // Color coords
 		1 - params.xBoarder, 0.0, xCol[0], xCol[1], xCol[2],
@@ -67,7 +65,7 @@ func makeAxisBuffs(params graphParams) (uint32, uint32, int32) {
 	return VAO, VBO, int32(len(vertices) / pointsPerVertex)
 }
 
-// TODO same idea change the range to fit in (I think its an issue with us starting at 0 instead of negative???)
+// TODO change axis to work with axis ranges being unbalanced
 func makeFunctionBuffs(params graphParams, fx singleVarFunc,
 	col mgl.Vec3) (uint32, uint32, int32) {
 
@@ -103,6 +101,22 @@ func makeFunctionBuffs(params graphParams, fx singleVarFunc,
 	return VAO, VBO, int32(len(vertices) / pointsPerVertex)
 
 }
+
+/*
+func makeNonCenteredAxisBuffs(params graphParams) ([]uint32, []int32) {
+	funcVAOs := []uint32{}
+	funcVertexCounts := []int32{}
+	funcVAO, _, funcVertexCount := makeFunctionBuffs(params,
+		func(x float32) float32 {
+			return x * x
+		},
+		mgl.Vec3{0.5, 0.5, 0.5})
+	funcVAOs = append(funcVAOs, funcVAO)
+	funcVertexCounts = append(funcVertexCounts, funcVertexCount)
+
+	return funcVAOs, funcVertexCounts
+}
+*/
 
 func makeRibbonBuffs(params graphParams) ([]uint32, []int32) {
 	funcVAOs := []uint32{}
@@ -228,11 +242,23 @@ func main() {
 	title := "2D graping"
 	fmt.Println("Starting")
 
+	/*
+		params := graphParams{
+			xBoarder:   0.1,
+			yBoarder:   0.1,
+			xRange:     mgl.Vec2{-10, 10},
+			yRange:     mgl.Vec2{-2, 2},
+			dx:         0.01,
+			xAxisColor: mgl.Vec3{1.0, 1.0, 1.0},
+			yAxisColor: mgl.Vec3{0.3, 0.5, 0.3},
+		}
+	*/
+
 	params := graphParams{
 		xBoarder:   0.1,
 		yBoarder:   0.1,
-		xRange:     mgl.Vec2{-10, 10},
-		yRange:     mgl.Vec2{-2, 2},
+		xRange:     mgl.Vec2{-2, 2},
+		yRange:     mgl.Vec2{0, 2},
 		dx:         0.01,
 		xAxisColor: mgl.Vec3{1.0, 1.0, 1.0},
 		yAxisColor: mgl.Vec3{0.3, 0.5, 0.3},
