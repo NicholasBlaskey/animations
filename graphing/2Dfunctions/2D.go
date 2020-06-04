@@ -106,6 +106,57 @@ func makeFunctionBuffs(params graphParams, fx singleVarFunc,
 
 }
 
+func makeRibbonBuffs(params graphParams) ([]uint32, []int32) {
+	funcVAOs := []uint32{}
+	funcVertexCounts := []int32{}
+	for i := -100; i < 100; i++ {
+		funcVAO, _, funcVertexCount := makeFunctionBuffs(params,
+			func(x float32) float32 {
+				return float32(math.Sin(float64(x) + float64(i)*0.01))
+			},
+			mgl.Vec3{(float32(i))*0.006 + 0.45,
+				float32(i)*0.005 + 0.35, float32(i)*0.007 + 0.55})
+		funcVAOs = append(funcVAOs, funcVAO)
+		funcVertexCounts = append(funcVertexCounts, funcVertexCount)
+	}
+
+	return funcVAOs, funcVertexCounts
+}
+
+func makeWaveBuffs(params graphParams) ([]uint32, []int32) {
+	funcVAOs := []uint32{}
+	funcVertexCounts := []int32{}
+	for i := -100; i < 100; i++ {
+		funcVAO, _, funcVertexCount := makeFunctionBuffs(params,
+			func(x float32) float32 {
+				return float32(math.Sin(float64(x))) + float32(i)*0.01
+			},
+			mgl.Vec3{(float32(i))*0.01 + 0.30,
+				float32(i)*0.03 + 0.25, float32(i)*0.02 + 0.15})
+		funcVAOs = append(funcVAOs, funcVAO)
+		funcVertexCounts = append(funcVertexCounts, funcVertexCount)
+	}
+
+	return funcVAOs, funcVertexCounts
+}
+
+func makeWeirdBuffs(params graphParams) ([]uint32, []int32) {
+	funcVAOs := []uint32{}
+	funcVertexCounts := []int32{}
+	for i := -100; i < 100; i++ {
+		funcVAO, _, funcVertexCount := makeFunctionBuffs(params,
+			func(x float32) float32 {
+				return float32(math.Sin(float64(x*3.0))) * float32(i) * 0.03
+			},
+			mgl.Vec3{(float32(-i))*0.015 + 0.68,
+				float32(i)*0.03 + 0.53, float32(i)*0.002 + 0.83})
+		funcVAOs = append(funcVAOs, funcVAO)
+		funcVertexCounts = append(funcVertexCounts, funcVertexCount)
+	}
+
+	return funcVAOs, funcVertexCounts
+}
+
 func main() {
 	title := "2D graping"
 	fmt.Println("Starting")
@@ -128,18 +179,9 @@ func main() {
 	ourShader := shader.MakeShaders("2D.vs", "2D.fs")
 	axisVAO, axisVBO, axisVertexCount := makeAxisBuffs(params)
 
-	funcVAOs := []uint32{}
-	funcVertexCounts := []int32{}
-	for i := -100; i < 100; i++ {
-		funcVAO, _, funcVertexCount := makeFunctionBuffs(params,
-			func(x float32) float32 {
-				return float32(math.Sin(float64(x))) + float32(i)*0.01
-			},
-			mgl.Vec3{(float32(i))*0.01 + 0.30,
-				float32(i)*0.03 + 0.25, float32(i)*0.02 + 0.15})
-		funcVAOs = append(funcVAOs, funcVAO)
-		funcVertexCounts = append(funcVertexCounts, funcVertexCount)
-	}
+	//funcVAOs, funcVertexCounts := makeRibbonBuffs(params)
+	//funcVAOs, funcVertexCounts := makeWaveBuffs(params)
+	funcVAOs, funcVertexCounts := makeWeirdBuffs(params)
 
 	defer gl.DeleteVertexArrays(1, &axisVAO)
 	defer gl.DeleteVertexArrays(1, &axisVBO)
