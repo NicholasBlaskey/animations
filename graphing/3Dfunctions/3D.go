@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	//	"math"
+	"math"
 	"runtime"
 	"time"
 
@@ -108,73 +108,37 @@ func makeFunctionBuffs(params graphParams, fx twoVarFunc,
 
 	numX := int(params.xRange[1] - params.xRange[0]/params.gridSpacing)
 	numY := int(params.yRange[1] - params.yRange[0]/params.gridSpacing)
-	positions := getPositions(numX, numY)
-	xOffset := 1.0 / float32(numX)
-	yOffset := 1.0 / float32(numY)
+	pos := getPositions(numX, numY)
+	xOff := 1.0 / float32(numX)
+	yOff := 1.0 / float32(numY)
 
-	xScale := 2.0 - params.xBoarder*2
-	xDist := params.xRange[1] - params.xRange[0]
-	yScale := 2.0 - params.yBoarder*2
-	yDist := params.yRange[1] - params.yRange[0]
-	zScale := 2.0 - params.zBoarder*2
-	zDist := params.zRange[1] - params.zRange[0]
-	vertices := []float32{}
-	for i := 0; i < len(positions); i++ {
-		xVal := positions[i][0] / xScale * xDist
-		yVal := positions[i][1] / yScale * yDist
-		zCord := zScale * fx(xVal, yVal) / zDist
-		vertices = append(vertices,
-			-xOffset+positions[i][0], zCord, yOffset+positions[i][1], col[0], col[1], col[2],
-			xOffset+positions[i][0], zCord, -yOffset+positions[i][1], col[0], col[1], col[2],
-			-xOffset+positions[i][0], zCord, -yOffset+positions[i][1], col[0], col[1], col[2],
-
-			-xOffset+positions[i][0], zCord, yOffset+positions[i][1], col[0], col[1], col[2],
-			xOffset+positions[i][0], zCord, -yOffset+positions[i][1], col[0], col[1], col[2],
-			xOffset+positions[i][0], zCord, yOffset+positions[i][1], col[0], col[1], col[2],
-		)
+	getZ := func(xPos, yPos float32) float32 {
+		xVal := (xPos / (2.0 - params.xBoarder*2) *
+			(params.xRange[1] - params.xRange[0]))
+		yVal := (yPos / (2.0 - params.yBoarder*2) *
+			(params.yRange[1] - params.yRange[0]))
+		return (2.0 - params.zBoarder*2) * fx(xVal, yVal) /
+			(params.zRange[1] - params.zRange[0])
 	}
 
-	/*
-				//for i := params.xRange[0]; i < params.xRange[1]; i += params.gridSpacing {
-		xScale := 2.0 - params.xBoarder*2
-			xDist := params.xRange[1] - params.xRange[0]
-			yScale := 2.0 - params.yBoarder*2
-			yDist := params.yRange[1] - params.yRange[0]
-			zScale := 2.0 - params.zBoarder*2
-			zDist := params.zRange[1] - params.zRange[0]
+	vertices := []float32{}
+	for i := 0; i < len(pos); i++ {
+		vertices = append(vertices,
+			-xOff+pos[i][0], getZ(-xOff+pos[i][0], yOff+pos[i][1]), yOff+pos[i][1],
+			col[0], col[1], col[2],
+			xOff+pos[i][0], getZ(xOff+pos[i][0], -yOff+pos[i][1]), -yOff+pos[i][1],
+			col[0], col[1], col[2],
+			-xOff+pos[i][0], getZ(-xOff+pos[i][0], -yOff+pos[i][1]), -yOff+pos[i][1],
+			col[0], col[1], col[2],
 
-				for i := params.xRange[0]; i < -4; i++ {
-					fmt.Println(i)
-					for j := params.yRange[0]; j < params.yRange[1]; j += params.gridSpacing {
-						xVal := xScale * i / xDist
-						yVal := yScale * j / yDist
-						zVal := zScale * fx(i, j) / zDist
-
-						fmt.Printf("x=%f,y=%f,z=%f\n", xVal, yVal, zVal)
-
-						// TODO we could make this technically more accurate by
-						// sampling 6 times for each func
-						// Opengl axis are different from what we would think of as Z
-						// from a calc 3 perspective
-						vertices = append(vertices,
-							xVal, zVal, yVal, col[0], col[1], col[2],
-							xVal+xOffset, zVal, yVal-yOffset, col[0], col[1], col[2],
-							xVal, zVal, yVal-yOffset, col[0], col[1], col[2],
-
-							//xVal-xOffset, zVal, yVal+yOffset, col[0], col[1], col[2],
-							//xVal+xOffset, zVal, yVal-yOffset, col[0], col[1], col[2],
-							//xVal-xOffset, zVal, yVal-yOffset, col[0], col[1], col[2],
-
-							//xVal-xOffset, zVal, yVal+yOffset, col[0], col[1], col[2],
-							//xVal+xOffset, zVal, yVal-yOffset, col[0], col[1], col[2],
-							//xVal+xOffset, zVal, yVal+yOffset, col[0], col[1], col[2],
-						)
-						//fmt.Println(vertices[len(vertices)-6 : len(vertices)-3])
-					}
-				}
-
-	*/
-	fmt.Println(len(vertices) / 6 / 6)
+			-xOff+pos[i][0], getZ(-xOff+pos[i][0], yOff+pos[i][1]), yOff+pos[i][1],
+			col[0], col[1], col[2],
+			xOff+pos[i][0], getZ(xOff+pos[i][0], -yOff+pos[i][1]), -yOff+pos[i][1],
+			col[0], col[1], col[2],
+			xOff+pos[i][0], getZ(xOff+pos[i][0], yOff+pos[i][1]), yOff+pos[i][1],
+			col[0], col[1], col[2],
+		)
+	}
 
 	var VAO, VBO uint32
 	gl.GenVertexArrays(1, &VAO)
@@ -224,7 +188,10 @@ func main() {
 	ourShader := shader.MakeShaders("3D.vs", "3D.fs")
 	axisVAO, axisVBO, axisVertexCount := makeAxisBuffs(params)
 	funcVAO, funcVBO, funcVertexCount := makeFunctionBuffs(params,
-		func(x, y float32) float32 { return x*x + y*y },
+		func(x, y float32) float32 {
+			return float32(math.Sin(float64(x)))*y +
+				float32(math.Cos(float64(y)))*x
+		},
 		mgl.Vec3{0.3, 0.6, 0.3})
 
 	defer gl.DeleteVertexArrays(1, &axisVAO)
@@ -234,7 +201,7 @@ func main() {
 
 	lastTime := 0.0
 	numFrames := 0.0
-	//gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
+	gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
 	for !window.ShouldClose() {
 		// Pre frame logic
 		currentFrame := float32(glfw.GetTime())
