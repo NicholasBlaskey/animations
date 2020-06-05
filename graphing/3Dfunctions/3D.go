@@ -16,8 +16,8 @@ import (
 	"github.com/nicholasblaskey/animations/glfwBoilerplate"
 )
 
-const windowWidth = 500
-const windowHeight = 500
+const windowWidth = 1280
+const windowHeight = 720
 
 // Camera
 var ourCamera camera.Camera = camera.NewCamera(
@@ -53,8 +53,24 @@ type graphParams struct {
 	//	yAxisColor mgl.Vec3
 }
 
+type twoVarFunc func(x, y float32) float32
+
 func init() {
 	runtime.LockOSThread()
+}
+
+func getPositions(numX, numY int) []mgl.Vec2 {
+	translations := []mgl.Vec2{}
+	xOffset := 1.0 / float32(numX)
+	yOffset := 1.0 / float32(numY)
+	for y := -numY; y < numY; y += 2 {
+		for x := -numX; x < numX; x += 2 {
+			translations = append(translations,
+				mgl.Vec2{float32(x)/float32(numX) + xOffset,
+					float32(y)/float32(numY) + yOffset})
+		}
+	}
+	return translations
 }
 
 func makeAxisBuffs(params graphParams) (uint32, uint32, int32) {
@@ -67,6 +83,98 @@ func makeAxisBuffs(params graphParams) (uint32, uint32, int32) {
 		0.0, 0.0, 1 - params.zBoarder, 0.0, 0.0, 1.0,
 		0.0, 0.0, -1 + params.zBoarder, 0.0, 0.0, 1.0,
 	}
+
+	var VAO, VBO uint32
+	gl.GenVertexArrays(1, &VAO)
+	gl.GenBuffers(1, &VBO)
+
+	gl.BindVertexArray(VAO)
+	gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
+	gl.BufferData(gl.ARRAY_BUFFER, len(vertices)*4,
+		gl.Ptr(vertices), gl.STATIC_DRAW)
+
+	gl.EnableVertexAttribArray(0)
+	gl.VertexAttribPointer(0, 3, gl.FLOAT, false, pointsPerVertex*4,
+		gl.PtrOffset(0))
+	gl.EnableVertexAttribArray(1)
+	gl.VertexAttribPointer(1, 3, gl.FLOAT, false, pointsPerVertex*4,
+		gl.PtrOffset(3*4))
+
+	return VAO, VBO, int32(len(vertices) / pointsPerVertex)
+}
+
+func makeFunctionBuffs(params graphParams, fx twoVarFunc,
+	col mgl.Vec3) (uint32, uint32, int32) {
+
+	numX := int(params.xRange[1] - params.xRange[0]/params.gridSpacing)
+	numY := int(params.yRange[1] - params.yRange[0]/params.gridSpacing)
+	positions := getPositions(numX, numY)
+	xOffset := 1.0 / float32(numX)
+	yOffset := 1.0 / float32(numY)
+
+	xScale := 2.0 - params.xBoarder*2
+	xDist := params.xRange[1] - params.xRange[0]
+	yScale := 2.0 - params.yBoarder*2
+	yDist := params.yRange[1] - params.yRange[0]
+	zScale := 2.0 - params.zBoarder*2
+	zDist := params.zRange[1] - params.zRange[0]
+	vertices := []float32{}
+	for i := 0; i < len(positions); i++ {
+		xVal := positions[i][0] / xScale * xDist
+		yVal := positions[i][1] / yScale * yDist
+		zCord := zScale * fx(xVal, yVal) / zDist
+		vertices = append(vertices,
+			-xOffset+positions[i][0], zCord, yOffset+positions[i][1], col[0], col[1], col[2],
+			xOffset+positions[i][0], zCord, -yOffset+positions[i][1], col[0], col[1], col[2],
+			-xOffset+positions[i][0], zCord, -yOffset+positions[i][1], col[0], col[1], col[2],
+
+			-xOffset+positions[i][0], zCord, yOffset+positions[i][1], col[0], col[1], col[2],
+			xOffset+positions[i][0], zCord, -yOffset+positions[i][1], col[0], col[1], col[2],
+			xOffset+positions[i][0], zCord, yOffset+positions[i][1], col[0], col[1], col[2],
+		)
+	}
+
+	/*
+				//for i := params.xRange[0]; i < params.xRange[1]; i += params.gridSpacing {
+		xScale := 2.0 - params.xBoarder*2
+			xDist := params.xRange[1] - params.xRange[0]
+			yScale := 2.0 - params.yBoarder*2
+			yDist := params.yRange[1] - params.yRange[0]
+			zScale := 2.0 - params.zBoarder*2
+			zDist := params.zRange[1] - params.zRange[0]
+
+				for i := params.xRange[0]; i < -4; i++ {
+					fmt.Println(i)
+					for j := params.yRange[0]; j < params.yRange[1]; j += params.gridSpacing {
+						xVal := xScale * i / xDist
+						yVal := yScale * j / yDist
+						zVal := zScale * fx(i, j) / zDist
+
+						fmt.Printf("x=%f,y=%f,z=%f\n", xVal, yVal, zVal)
+
+						// TODO we could make this technically more accurate by
+						// sampling 6 times for each func
+						// Opengl axis are different from what we would think of as Z
+						// from a calc 3 perspective
+						vertices = append(vertices,
+							xVal, zVal, yVal, col[0], col[1], col[2],
+							xVal+xOffset, zVal, yVal-yOffset, col[0], col[1], col[2],
+							xVal, zVal, yVal-yOffset, col[0], col[1], col[2],
+
+							//xVal-xOffset, zVal, yVal+yOffset, col[0], col[1], col[2],
+							//xVal+xOffset, zVal, yVal-yOffset, col[0], col[1], col[2],
+							//xVal-xOffset, zVal, yVal-yOffset, col[0], col[1], col[2],
+
+							//xVal-xOffset, zVal, yVal+yOffset, col[0], col[1], col[2],
+							//xVal+xOffset, zVal, yVal-yOffset, col[0], col[1], col[2],
+							//xVal+xOffset, zVal, yVal+yOffset, col[0], col[1], col[2],
+						)
+						//fmt.Println(vertices[len(vertices)-6 : len(vertices)-3])
+					}
+				}
+
+	*/
+	fmt.Println(len(vertices) / 6 / 6)
 
 	var VAO, VBO uint32
 	gl.GenVertexArrays(1, &VAO)
@@ -102,7 +210,7 @@ func main() {
 	}
 
 	window := glfwBoilerplate.InitGLFW(title,
-		windowWidth, windowHeight, false)
+		windowWidth, windowHeight, true)
 	defer glfw.Terminate()
 
 	// Add in camera callbacks
@@ -115,14 +223,18 @@ func main() {
 
 	ourShader := shader.MakeShaders("3D.vs", "3D.fs")
 	axisVAO, axisVBO, axisVertexCount := makeAxisBuffs(params)
+	funcVAO, funcVBO, funcVertexCount := makeFunctionBuffs(params,
+		func(x, y float32) float32 { return x*x + y*y },
+		mgl.Vec3{0.3, 0.6, 0.3})
 
 	defer gl.DeleteVertexArrays(1, &axisVAO)
 	defer gl.DeleteVertexArrays(1, &axisVBO)
-	//defer gl.DeleteVertexArrays(1, &funcVAO)
-	//defer gl.DeleteVertexArrays(1, &funcVBO)
+	defer gl.DeleteVertexArrays(1, &funcVAO)
+	defer gl.DeleteVertexArrays(1, &funcVBO)
 
 	lastTime := 0.0
 	numFrames := 0.0
+	//gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
 	for !window.ShouldClose() {
 		// Pre frame logic
 		currentFrame := float32(glfw.GetTime())
@@ -141,7 +253,7 @@ func main() {
 		// View / projection transformations
 		ourShader.Use()
 		projection := mgl.Perspective(mgl.DegToRad(ourCamera.Zoom),
-			float32(windowHeight)/windowWidth, 0.1, 100.0)
+			float32(windowHeight)/windowWidth, 0.1, 1000.0)
 		view := ourCamera.GetViewMatrix()
 		ourShader.SetMat4("projection", projection)
 		ourShader.SetMat4("view", view)
@@ -153,12 +265,9 @@ func main() {
 		gl.BindVertexArray(0)
 
 		// Draw functions
-		//gl.BindVertexArray(funcVAOs[i])
-		//gl.DrawArray(gl.POINTS, 0, funcVertexCount)
-		//gl.BindVertexArray(funcVAO)
-		//gl.DrawArrays(gl.LINE_STRIP, 0, funcVertexCount)
-		//gl.BindVertexArray(0)
-		//}
+		gl.BindVertexArray(funcVAO)
+		gl.DrawArrays(gl.TRIANGLES, 0, funcVertexCount)
+		gl.BindVertexArray(0)
 
 		window.SwapBuffers()
 
