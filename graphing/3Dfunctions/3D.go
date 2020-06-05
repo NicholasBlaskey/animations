@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	"math"
+	//	"math"
+	"math/rand"
 	"runtime"
 	"time"
 
@@ -159,6 +160,70 @@ func makeFunctionBuffs(params graphParams, fx twoVarFunc,
 	return VAO, VBO, int32(len(vertices) / pointsPerVertex)
 }
 
+func makeAsymptoteBuffs(params graphParams) (
+	[]uint32, []int32, uint32, bool) {
+
+	funcVAOs := []uint32{}
+	funcVertexCounts := []int32{}
+
+	params.xRange = mgl.Vec2{-100, 100}
+	params.yRange = mgl.Vec2{-100, 100}
+	params.zRange = mgl.Vec2{-1, 1}
+	params.gridSpacing = 1.0
+
+	funcVAO, _, funcVertexCount := makeFunctionBuffs(params,
+		func(x, y float32) float32 {
+			return 1/x + 0.00001 + 1/y + 0.0001
+		},
+		mgl.Vec3{0.20, 0.7, 0.55})
+	funcVAOs = append(funcVAOs, funcVAO)
+	funcVertexCounts = append(funcVertexCounts, funcVertexCount)
+
+	return funcVAOs, funcVertexCounts, gl.TRIANGLES, true
+}
+
+func makeRandPlane(params graphParams) (
+	[]uint32, []int32, uint32, bool) {
+	funcVAOs := []uint32{}
+	funcVertexCounts := []int32{}
+
+	rand.Seed(100010)
+
+	count := 100
+	for i := -count; i <= count; i++ {
+		funcVAO, _, funcVertexCount := makeFunctionBuffs(params,
+			func(x, y float32) float32 {
+				return x + y + rand.Float32()
+			},
+			mgl.Vec3{0.5 + float32(i)/float32(count),
+				0.5 + float32(i)/float32(count),
+				0.5 + float32(-i)/float32(count)})
+		funcVAOs = append(funcVAOs, funcVAO)
+		funcVertexCounts = append(funcVertexCounts, funcVertexCount)
+	}
+	return funcVAOs, funcVertexCounts, gl.TRIANGLES, false
+}
+
+func makeRandColorPlane(params graphParams) (
+	[]uint32, []int32, uint32, bool) {
+	funcVAOs := []uint32{}
+	funcVertexCounts := []int32{}
+
+	rand.Seed(100010)
+
+	count := 10
+	for i := -count; i <= count; i++ {
+		funcVAO, _, funcVertexCount := makeFunctionBuffs(params,
+			func(x, y float32) float32 {
+				return 33 * rand.Float32() * rand.Float32()
+			},
+			mgl.Vec3{rand.Float32(), rand.Float32(), rand.Float32()})
+		funcVAOs = append(funcVAOs, funcVAO)
+		funcVertexCounts = append(funcVertexCounts, funcVertexCount)
+	}
+	return funcVAOs, funcVertexCounts, gl.TRIANGLES, false
+}
+
 func main() {
 	title := "3D graping"
 	fmt.Println("Starting")
@@ -187,21 +252,29 @@ func main() {
 
 	ourShader := shader.MakeShaders("3D.vs", "3D.fs")
 	axisVAO, axisVBO, axisVertexCount := makeAxisBuffs(params)
-	funcVAO, funcVBO, funcVertexCount := makeFunctionBuffs(params,
-		func(x, y float32) float32 {
-			return float32(math.Sin(float64(x)))*y +
-				float32(math.Cos(float64(y)))*x
-		},
-		mgl.Vec3{0.3, 0.6, 0.3})
+	funcVAOs, funcVertexCounts, drawingType, isWireframe := makeAsymptoteBuffs(params)
+	//funcVAOs, funcVertexCounts, drawingType, isWireframe := makeRandPlane(params)
+	//funcVAOs, funcVertexCounts, drawingType, isWireframe := makeRandColorPlane(params)
+
+	/*funcVAO, funcVBO, funcVertexCount := makeFunctionBuffs(params,
+	func(x, y float32) float32 {
+		return float32(math.Sin(float64(x)))*y +
+			float32(math.Cos(float64(y)))*x
+	},
+	mgl.Vec3{0.3, 0.6, 0.3})
+	*/
 
 	defer gl.DeleteVertexArrays(1, &axisVAO)
 	defer gl.DeleteVertexArrays(1, &axisVBO)
-	defer gl.DeleteVertexArrays(1, &funcVAO)
-	defer gl.DeleteVertexArrays(1, &funcVBO)
+	//defer gl.DeleteVertexArrays(1, &funcVAO)
+	//defer gl.DeleteVertexArrays(1, &funcVBO)
 
 	lastTime := 0.0
 	numFrames := 0.0
-	gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
+
+	if isWireframe {
+		gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
+	}
 	for !window.ShouldClose() {
 		// Pre frame logic
 		currentFrame := float32(glfw.GetTime())
@@ -232,10 +305,11 @@ func main() {
 		gl.BindVertexArray(0)
 
 		// Draw functions
-		gl.BindVertexArray(funcVAO)
-		gl.DrawArrays(gl.TRIANGLES, 0, funcVertexCount)
-		gl.BindVertexArray(0)
-
+		for i := 0; i < len(funcVAOs); i++ {
+			gl.BindVertexArray(funcVAOs[i])
+			gl.DrawArrays(drawingType, 0, funcVertexCounts[i])
+			gl.BindVertexArray(0)
+		}
 		window.SwapBuffers()
 
 		time.Sleep(0 * time.Millisecond)
