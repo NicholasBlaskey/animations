@@ -13,116 +13,18 @@ import (
 	"github.com/nicholasblaskey/go-learn-opengl/includes/shader"
 
 	"github.com/nicholasblaskey/animations/glfwBoilerplate"
+	"github.com/nicholasblaskey/animations/graphing"
 )
-
-const pointsPerVertex = 5
-
-type graphParams struct {
-	xBoarder   float32
-	yBoarder   float32
-	xRange     mgl.Vec2
-	yRange     mgl.Vec2
-	dx         float32
-	xAxisColor mgl.Vec3
-	yAxisColor mgl.Vec3
-}
-
-type singleVarFunc func(x float32) float32
 
 func init() {
 	runtime.LockOSThread()
 }
 
-// TODO change axis to work with axis ranges being unbalanced
-func makeAxisBuffs(params graphParams) (uint32, uint32, int32) {
-	xCol := params.xAxisColor
-	yCol := params.yAxisColor
-
-	vertices := []float32{
-		// Positions         // Color coords
-		1 - params.xBoarder, 0.0, xCol[0], xCol[1], xCol[2],
-		-1 + params.xBoarder, 0.0, xCol[0], xCol[1], xCol[2],
-		0.0, 1 - params.yBoarder, yCol[0], yCol[1], yCol[2],
-		0.0, -1 + params.yBoarder, yCol[0], yCol[1], yCol[2],
-	}
-
-	var VAO, VBO uint32
-	gl.GenVertexArrays(1, &VAO)
-	gl.GenBuffers(1, &VBO)
-
-	gl.BindVertexArray(VAO)
-	gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
-	gl.BufferData(gl.ARRAY_BUFFER, len(vertices)*4,
-		gl.Ptr(vertices), gl.STATIC_DRAW)
-
-	gl.EnableVertexAttribArray(0)
-	gl.VertexAttribPointer(0, 2, gl.FLOAT, false, pointsPerVertex*4,
-		gl.PtrOffset(0))
-	gl.EnableVertexAttribArray(1)
-	gl.VertexAttribPointer(1, 3, gl.FLOAT, false, pointsPerVertex*4,
-		gl.PtrOffset(2*4))
-
-	return VAO, VBO, int32(len(vertices) / pointsPerVertex)
-}
-
-// TODO change axis to work with axis ranges being unbalanced
-func makeFunctionBuffs(params graphParams, fx singleVarFunc,
-	col mgl.Vec3) (uint32, uint32, int32) {
-
-	vertices := []float32{}
-	for i := params.xRange[0]; i <= params.xRange[1]; i += params.dx {
-		//y := fx(i)
-		//if y >= params.yRange[0] && y <= params.yRange[1] {
-		vertices = append(vertices,
-			(2.0-params.xBoarder*2)*
-				(i/(params.xRange[1]-params.xRange[0])),
-			(2.0-params.yBoarder*2)*
-				(fx(i)/(params.yRange[1]-params.yRange[0])),
-			col[0], col[1], col[2])
-		//}
-	}
-
-	var VAO, VBO uint32
-	gl.GenVertexArrays(1, &VAO)
-	gl.GenBuffers(1, &VBO)
-
-	gl.BindVertexArray(VAO)
-	gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
-	gl.BufferData(gl.ARRAY_BUFFER, len(vertices)*4,
-		gl.Ptr(vertices), gl.STATIC_DRAW)
-
-	gl.EnableVertexAttribArray(0)
-	gl.VertexAttribPointer(0, 2, gl.FLOAT, false, pointsPerVertex*4,
-		gl.PtrOffset(0))
-	gl.EnableVertexAttribArray(1)
-	gl.VertexAttribPointer(1, 3, gl.FLOAT, false, pointsPerVertex*4,
-		gl.PtrOffset(2*4))
-
-	return VAO, VBO, int32(len(vertices) / pointsPerVertex)
-
-}
-
-/*
-func makeNonCenteredAxisBuffs(params graphParams) ([]uint32, []int32) {
-	funcVAOs := []uint32{}
-	funcVertexCounts := []int32{}
-	funcVAO, _, funcVertexCount := makeFunctionBuffs(params,
-		func(x float32) float32 {
-			return x * x
-		},
-		mgl.Vec3{0.5, 0.5, 0.5})
-	funcVAOs = append(funcVAOs, funcVAO)
-	funcVertexCounts = append(funcVertexCounts, funcVertexCount)
-
-	return funcVAOs, funcVertexCounts
-}
-*/
-
-func makeRibbonBuffs(params graphParams) ([]uint32, []int32) {
+func makeRibbonBuffs(params graphing.Params2D) ([]uint32, []int32) {
 	funcVAOs := []uint32{}
 	funcVertexCounts := []int32{}
 	for i := -100; i < 100; i++ {
-		funcVAO, _, funcVertexCount := makeFunctionBuffs(params,
+		funcVAO, _, funcVertexCount := graphing.MakeFunctionBuffs(params,
 			func(x float32) float32 {
 				return float32(math.Sin(float64(x) + float64(i)*0.01))
 			},
@@ -135,11 +37,11 @@ func makeRibbonBuffs(params graphParams) ([]uint32, []int32) {
 	return funcVAOs, funcVertexCounts
 }
 
-func makeWaveBuffs(params graphParams) ([]uint32, []int32) {
+func makeWaveBuffs(params graphing.Params2D) ([]uint32, []int32) {
 	funcVAOs := []uint32{}
 	funcVertexCounts := []int32{}
 	for i := -100; i < 100; i++ {
-		funcVAO, _, funcVertexCount := makeFunctionBuffs(params,
+		funcVAO, _, funcVertexCount := graphing.MakeFunctionBuffs(params,
 			func(x float32) float32 {
 				return float32(math.Sin(float64(x))) + float32(i)*0.01
 			},
@@ -152,11 +54,11 @@ func makeWaveBuffs(params graphParams) ([]uint32, []int32) {
 	return funcVAOs, funcVertexCounts
 }
 
-func makeWeirdBuffs(params graphParams) ([]uint32, []int32) {
+func makeWeirdBuffs(params graphing.Params2D) ([]uint32, []int32) {
 	funcVAOs := []uint32{}
 	funcVertexCounts := []int32{}
 	for i := -100; i < 100; i++ {
-		funcVAO, _, funcVertexCount := makeFunctionBuffs(params,
+		funcVAO, _, funcVertexCount := graphing.MakeFunctionBuffs(params,
 			func(x float32) float32 {
 				return float32(math.Sin(float64(x*3.0))) * float32(i) * 0.03
 			},
@@ -169,9 +71,9 @@ func makeWeirdBuffs(params graphParams) ([]uint32, []int32) {
 	return funcVAOs, funcVertexCounts
 }
 
-func makeCubicBuffs(params graphParams) ([]uint32, []int32) {
-	params.xRange = mgl.Vec2{-2, 2}
-	params.yRange = mgl.Vec2{-3, 3}
+func makeCubicBuffs(params graphing.Params2D) ([]uint32, []int32) {
+	params.XRange = mgl.Vec2{-2, 2}
+	params.YRange = mgl.Vec2{-3, 3}
 
 	funcVAOs := []uint32{}
 	funcVertexCounts := []int32{}
@@ -183,7 +85,7 @@ func makeCubicBuffs(params graphParams) ([]uint32, []int32) {
 			col = 0.0
 		}
 
-		funcVAO, _, funcVertexCount := makeFunctionBuffs(params,
+		funcVAO, _, funcVertexCount := graphing.MakeFunctionBuffs(params,
 			func(x float32) float32 {
 				return x*x*x + float32(i)*0.005
 			},
@@ -195,9 +97,9 @@ func makeCubicBuffs(params graphParams) ([]uint32, []int32) {
 	return funcVAOs, funcVertexCounts
 }
 
-func makeCubic2Buffs(params graphParams) ([]uint32, []int32) {
-	params.xRange = mgl.Vec2{-2, 2}
-	params.yRange = mgl.Vec2{-3, 3}
+func makeCubic2Buffs(params graphing.Params2D) ([]uint32, []int32) {
+	params.XRange = mgl.Vec2{-2, 2}
+	params.YRange = mgl.Vec2{-3, 3}
 
 	colVec1 := mgl.Vec3{0.0, 0.8, 0.8}
 	colVec2 := mgl.Vec3{0.8, 0.8, 0.1}
@@ -225,7 +127,7 @@ func makeCubic2Buffs(params graphParams) ([]uint32, []int32) {
 				colVec = colVec3
 			}
 
-			funcVAO, _, funcVertexCount := makeFunctionBuffs(params,
+			funcVAO, _, funcVertexCount := graphing.MakeFunctionBuffs(params,
 				func(x float32) float32 {
 					return sign*x*x*x + float32(i)*0.09
 				},
@@ -254,14 +156,14 @@ func main() {
 		}
 	*/
 
-	params := graphParams{
-		xBoarder:   0.1,
-		yBoarder:   0.1,
-		xRange:     mgl.Vec2{-2, 2},
-		yRange:     mgl.Vec2{0, 2},
-		dx:         0.01,
-		xAxisColor: mgl.Vec3{1.0, 1.0, 1.0},
-		yAxisColor: mgl.Vec3{0.3, 0.5, 0.3},
+	params := graphing.Params2D{
+		XBoarder:   0.1,
+		YBoarder:   0.1,
+		XRange:     mgl.Vec2{-2, 2},
+		YRange:     mgl.Vec2{0, 2},
+		Dx:         0.01,
+		XAxisColor: mgl.Vec3{1.0, 1.0, 1.0},
+		YAxisColor: mgl.Vec3{0.3, 0.5, 0.3},
 	}
 
 	window := glfwBoilerplate.InitGLFW(title,
@@ -270,7 +172,7 @@ func main() {
 	//gl.Enable(gl.MULTISAMPLE) // Enable anti aliasing
 
 	ourShader := shader.MakeShaders("2D.vs", "2D.fs")
-	axisVAO, axisVBO, axisVertexCount := makeAxisBuffs(params)
+	axisVAO, axisVBO, axisVertexCount := graphing.MakeAxisBuffs(params)
 
 	// TODO non centered axis
 	//funcVAOs, funcVertexCounts := makeNonCenteredAxisBuffs(params)
