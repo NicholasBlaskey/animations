@@ -67,6 +67,23 @@ func makeVecBuffs(params graphing.Params2D, vec mgl.Vec2,
 
 }
 
+func powerIter2D(A mgl.Mat2, k int) ([]mgl.Vec2, []float32) {
+	eigenVecs := []mgl.Vec2{}
+	eigenVals := []float32{}
+
+	x := mgl.Vec2{1, 1}
+	for j := 0; j < k; j++ {
+		x = x.Normalize()
+		x = A.Mul2x1(x)
+
+		eigenVecs = append(eigenVecs, x)
+		eigenVals = append(eigenVals, A.Mul2x1(x).Dot(x)/x.Dot(x))
+	}
+
+	fmt.Println(eigenVecs)
+	return eigenVecs, eigenVals
+}
+
 func main() {
 	title := "Power iteration"
 	fmt.Println("Starting")
@@ -89,23 +106,21 @@ func main() {
 
 	axisVAO, axisVBO, axisVertexCount := graphing.MakeAxisBuffs(params)
 
-	vecVAOs := []uint32{}
-	vertexCounts := []int32{}
+	fmt.Println(mgl.Mat2{2, 1, -12, -5})
+	eigenVecs, eigenVals := powerIter2D(mgl.Mat2{2, 3, 3, 2}, 1000)
+	fmt.Println(eigenVals)
 
-	vecVAO, _, vecVertexCount := makeVecBuffs(params,
-		mgl.Vec2{5, 1}, mgl.Vec3{0.5, 0.9, 0.3}, 0.06)
-	vecVAOs = append(vecVAOs, vecVAO)
-	vertexCounts = append(vertexCounts, vecVertexCount)
-
-	vecVAO, _, vecVertexCount = makeVecBuffs(params,
-		mgl.Vec2{3, 3}, mgl.Vec3{0.9, 0.5, 0.3}, 0.06)
-	vecVAOs = append(vecVAOs, vecVAO)
-	vertexCounts = append(vertexCounts, vecVertexCount)
-
-	vecVAO, _, vecVertexCount = makeVecBuffs(params,
-		mgl.Vec2{-1, -7}, mgl.Vec3{0.5, 0.3, 0.9}, 0.06)
-	vecVAOs = append(vecVAOs, vecVAO)
-	vertexCounts = append(vertexCounts, vecVertexCount)
+	/*
+		vecVAOs := []uint32{}
+		vertexCounts := []int32{}
+		for i := 0; i < len(eigenVecs); i++ {
+			vecVAO, _, vecVertexCount := makeVecBuffs(params,
+				eigenVecs[i], mgl.Vec3{float32(i) / 10.0,
+					float32(i) / 10.0, float32(i) / 10.0}, 0.06)
+			vecVAOs = append(vecVAOs, vecVAO)
+			vertexCounts = append(vertexCounts, vecVertexCount)
+		}
+	*/
 
 	defer gl.DeleteVertexArrays(1, &axisVAO)
 	defer gl.DeleteVertexArrays(1, &axisVBO)
@@ -114,6 +129,7 @@ func main() {
 
 	lastTime := 0.0
 	numFrames := 0.0
+	index := 0
 	for !window.ShouldClose() {
 		// Preframe
 		lastTime, numFrames = glfwBoilerplate.DisplayFrameRate(
@@ -129,20 +145,27 @@ func main() {
 		gl.DrawArrays(gl.LINES, 0, axisVertexCount)
 		gl.BindVertexArray(0)
 
-		//gl.BindVertexArray(vecVAO)
-		//gl.DrawArrays(gl.LINES, 0, vecVertexCount)
-		//gl.BindVertexArray(0)
+		vecVAO, _, vecVertexCount := makeVecBuffs(params,
+			eigenVecs[index], mgl.Vec3{0.3, 0.7 + float32(index)/10.0, 0.3}, 0.06)
+		gl.BindVertexArray(vecVAO)
+		gl.DrawArrays(gl.LINES, 0, vecVertexCount)
+		gl.BindVertexArray(0)
 
 		// Draw vecs
-		for i := 0; i < len(vecVAOs); i++ {
-			gl.BindVertexArray(vecVAOs[i])
-			gl.DrawArrays(gl.LINES, 0, vertexCounts[i])
-			gl.BindVertexArray(0)
-		}
+		/*
+			for i := 0; i < len(vecVAOs); i++ {
+				gl.BindVertexArray(vecVAOs[i])
+				gl.DrawArrays(gl.LINES, 0, vertexCounts[i])
+				gl.BindVertexArray(0)
+			}
+		*/
 
 		window.SwapBuffers()
 		glfw.PollEvents()
 
-		time.Sleep(0 * time.Millisecond)
+		if index < len(eigenVecs)-1 {
+			index += 1
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
