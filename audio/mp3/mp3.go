@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"runtime"
+	"time"
 
 	"github.com/hajimehoshi/go-mp3"
 	"github.com/hajimehoshi/oto"
@@ -58,6 +59,33 @@ func makeBuffers(offset float32) (uint32, uint32, int32) {
 }
 */
 
+func playMp3(fileName string) {
+	f, err := os.Open(fileName)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	d, err := mp3.NewDecoder(f)
+	if err != nil {
+		panic(err)
+	}
+
+	// Sample rate, channelNum, bitDepthInBytes, bufferSizeInBytes?
+	c, err := oto.NewContext(d.SampleRate(), 2, 2, 8192)
+	if err != nil {
+		panic(err)
+	}
+	defer c.Close()
+
+	p := c.NewPlayer()
+	defer p.Close()
+
+	if _, err := io.Copy(p, d); err != nil {
+		panic(err)
+	}
+}
+
 func main() {
 	fmt.Println("WORKING")
 
@@ -72,22 +100,54 @@ func main() {
 		panic(err)
 	}
 
-	c, err := oto.NewContext(d.SampleRate(), 2, 2, 8192)
-	if err != nil {
-		panic(err)
-	}
-	defer c.Close()
-
-	p := c.NewPlayer()
-	defer p.Close()
-
 	//read, _ :=
 
-	fmt.Println("here?")
-	if _, err := io.Copy(p, d); err != nil {
-		panic(err)
+	// https://larsimmisch.github.io/pyalsaaudio/terminology.html
+	// https://github.com/hajimehoshi/oto/blob/master/internal/mux/mux.go
+	// https://www.codeproject.com/Articles/8295/MPEG-Audio-Frame-Header
+	// https://github.com/hajimehoshi/go-mp3/blob/master/decode.go
+
+	//https://github.com/hajimehoshi/oto/blob/master/player.go
+	// Write writes PCM samples to the Player.
+	//
+	// The format is as follows:
+	//   [data]      = [sample 1] [sample 2] [sample 3] ...
+	//   [sample *]  = [channel 1] ...
+	//   [channel *] = [byte 1] [byte 2] ...
+	// Byte ordering is little endian.
+	//
+	// Idea is we need to take divide the sample rate into 60 buckets for fps
+	// We then create frequency buckets like 20-40hz,... all the way to the max
+	// Then we put a bargraph per frequency?
+
+	for i := 0; i < 1; i++ {
+		buff := make([]byte, 10000)
+		n, err := d.Read(buff)
+
+		if err != nil {
+			fmt.Println(i)
+			panic(err)
+		}
+		//fmt.Println(buff)
+
+		sum := 0
+		for j := 0; j < n; j++ {
+			sum += int(buff[j])
+		}
+		fmt.Printf("n=%d,sum=%d\n", n, sum)
+
+		if i == 1000-1 {
+			fmt.Println(buff)
+		}
 	}
-	fmt.Println("End method")
+
+	fmt.Println("here?")
+	go playMp3("../kubernetesMixtape.mp3")
+	fmt.Println("Ending")
+
+	fmt.Println(d.SampleRate())
+
+	time.Sleep(10 * time.Second)
 }
 
 /*
