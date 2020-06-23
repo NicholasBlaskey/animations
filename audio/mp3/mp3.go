@@ -83,7 +83,7 @@ func main() {
 	fmt.Println("WORKING")
 
 	f, err := os.Open("../kubernetesMixtape.mp3")
-	//f, err := os.Open("../test.mp3")
+	//f, err := os.Open("C:/Users/nblas/Desktop/ltir01.mp3")
 	if err != nil {
 		panic(err)
 	}
@@ -130,7 +130,7 @@ func main() {
 
 	numChannels := 2
 	bytesPerChannel := 2
-	numAudioFrames := 1000
+	numAudioFrames := 2201 // TODO get num audio frames
 
 	// First get all freq values
 	freqValues := []float32{}
@@ -144,18 +144,30 @@ func main() {
 		}
 
 		offset := numChannels * bytesPerChannel
-		for j := 0; j < n; j += offset {
+		sum := float32(0)
 
+		samplesPerPoint := 2
+		count := 0
+		for j := 0; j < n; j += offset {
 			/* This filter seems to help a lot
 			   not sure why we are running into a lot of high values???
-
-			if float32(binary.LittleEndian.Uint16(buff[j:])) > 50000.0 {
-				continue
-			}
 			*/
+			//if float32(binary.LittleEndian.Uint16(buff[j:])) > 50000.0 {
+			//	continue
+			//}
+			//freqValues = append(freqValues,
+			//	float32(binary.LittleEndian.Uint16(buff[j:])))
+			//
+			// https://stackoverflow.com/questions/26663494/algorithm-to-draw-waveform-from-audio
+			//fmt.Println(buff[j : j+2])
 
-			freqValues = append(freqValues,
-				float32(binary.LittleEndian.Uint16(buff[j:])))
+			sum += float32(int16(binary.LittleEndian.Uint16(buff[j:])))
+			count += 1
+			if count == samplesPerPoint {
+				freqValues = append(freqValues, sum/float32(samplesPerPoint))
+				count = 0
+				sum = 0.0
+			}
 		}
 	}
 
@@ -168,7 +180,7 @@ func main() {
 		j += 1
 		xVal := float32(i)/float32(len(freqValues)) + xOffset
 
-		yVal := float32(freqValues[j]) / 65536.0 * 0.5
+		yVal := float32(freqValues[j]) / (65536.0 / 2)
 
 		vertices = append(vertices,
 			xVal-xOffset, yVal, 0.3, 0.7, 0.3,
