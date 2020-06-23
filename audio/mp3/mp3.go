@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"runtime"
 	"time"
@@ -27,6 +28,12 @@ import (
 	*/)
 
 const pointsPerVertex = 5
+
+type freqRangeInfo struct {
+	maxPos float32
+	minNeg float32
+	rms    float32
+}
 
 func init() {
 	runtime.LockOSThread()
@@ -127,46 +134,53 @@ func main() {
 	// https://stackoverflow.com/questions/5890499/pcm-audio-amplitude-values
 	//
 	// http://www.geosci.usyd.edu.au/users/jboyden/vad/
-
+	//
+	// https://stackoverflow.com/questions/26663494/algorithm-to-draw-waveform-from-audio
+	samplesPerPoint := 100
 	numChannels := 2
 	bytesPerChannel := 2
-	numAudioFrames := 2201 // TODO get num audio frames
+	offset := numChannels * bytesPerChannel
 
 	// First get all freq values
-	freqValues := []float32{}
-	for i := 0; i < numAudioFrames; i++ {
+
+	//	maxVal := -1
+	freqValues := []freqRangeInfo{}
+	largestMag := float32(0)
+	for true {
 		buff := make([]byte, 10000)
 		n, err := d.Read(buff)
-
+		if n == 0 {
+			break
+		}
 		if err != nil {
-			fmt.Println(i)
 			panic(err)
 		}
 
-		offset := numChannels * bytesPerChannel
-		sum := float32(0)
-
-		samplesPerPoint := 2
-		count := 0
+		rms := float32(0)
+		maxPos := float32(0)
+		minNeg := float32(0)
 		for j := 0; j < n; j += offset {
-			/* This filter seems to help a lot
-			   not sure why we are running into a lot of high values???
-			*/
-			//if float32(binary.LittleEndian.Uint16(buff[j:])) > 50000.0 {
-			//	continue
-			//}
-			//freqValues = append(freqValues,
-			//	float32(binary.LittleEndian.Uint16(buff[j:])))
-			//
-			// https://stackoverflow.com/questions/26663494/algorithm-to-draw-waveform-from-audio
-			//fmt.Println(buff[j : j+2])
+			if (j/offset)%samplesPerPoint == 0 {
+				rms = float32(math.Sqrt(
+					float64(rms / float32(samplesPerPoint))))
+				freqValues = append(freqValues,
+					freqRangeInfo{maxPos, minNeg, rms})
 
-			sum += float32(int16(binary.LittleEndian.Uint16(buff[j:])))
-			count += 1
-			if count == samplesPerPoint {
-				freqValues = append(freqValues, sum/float32(samplesPerPoint))
-				count = 0
-				sum = 0.0
+				rms = 0.0
+				maxPos = 0.0
+				minNeg = 0.0
+			}
+
+			val := float32(int16(binary.LittleEndian.Uint16(buff[j:])))
+			rms += val * val
+			if val > maxPos {
+				maxPos = val
+			} else if val < minNeg {
+				minNeg = val
+			}
+
+			if float32(math.Abs(float64(val))) > largestMag {
+				largestMag = val
 			}
 		}
 	}
@@ -176,20 +190,36 @@ func main() {
 	xOffset := 1.0 / float32(len(freqValues))
 	j := 0
 
+	//c1 := []float32{0.5, 0.5, 0.6}
+	//c2 := []float32{0.2, 0.2, 0.4}
+	c1 := []float32{0.3, 0.7, 0.3}
+	c2 := []float32{0.1, 0.3, 0.3}
 	for i := -len(freqValues); i < len(freqValues)-3; i += 2 {
 		j += 1
 		xVal := float32(i)/float32(len(freqValues)) + xOffset
 
-		yVal := float32(freqValues[j]) / (65536.0 / 2)
-
+		minY := float32(freqValues[j].minNeg) / (largestMag * 5)
+		maxY := float32(freqValues[j].maxPos) / (largestMag * 5)
+		rms := float32(freqValues[j].rms) / (largestMag * 5)
 		vertices = append(vertices,
-			xVal-xOffset, yVal, 0.3, 0.7, 0.3,
-			xVal+xOffset, -yVal, 0.3, 0.7, 0.3, //-
-			xVal-xOffset, -yVal, 0.3, 0.7, 0.3, //-
+			// Draw dark line
+			xVal-xOffset, maxY, c1[0], c1[1], c1[2],
+			xVal+xOffset, minY, c1[0], c1[1], c1[2],
+			xVal-xOffset, minY, c1[0], c1[1], c1[2],
 
-			xVal-xOffset, yVal, 0.3, 0.7, 0.3,
-			xVal+xOffset, -yVal, 0.3, 0.7, 0.3,
-			xVal+xOffset, yVal, 0.3, 0.7, 0.3,
+			// Draw light line
+			xVal-xOffset, maxY, c1[0], c1[1], c1[2],
+			xVal+xOffset, minY, c1[0], c1[1], c1[2],
+			xVal+xOffset, maxY, c1[0], c1[1], c1[2],
+
+			// Draw upperline
+			xVal-xOffset, rms, c2[0], c2[1], c2[2],
+			xVal+xOffset, -rms, c2[0], c2[1], c2[2],
+			xVal-xOffset, -rms, c2[0], c2[1], c2[2],
+
+			xVal-xOffset, rms, c2[0], c2[1], c2[2],
+			xVal+xOffset, -rms, c2[0], c2[1], c2[2],
+			xVal+xOffset, rms, c2[0], c2[1], c2[2],
 		)
 	}
 
