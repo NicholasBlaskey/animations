@@ -137,10 +137,8 @@ func freqIntoVertices(freqValues []freqRangeInfo, xShift, largestMag,
 	return vertices
 }
 
-func main() {
-	fmt.Println("WORKING")
-
-	f, err := os.Open("../kubernetesMixtape.mp3")
+func singleGraph(fileName string) ([]uint32, []uint32, []int32) {
+	f, err := os.Open(fileName)
 	if err != nil {
 		panic(err)
 	}
@@ -150,24 +148,98 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
 	freqValues, largestMag := getFreqValues(d, 100, 2, 2)
 	xShift := float32(0.0)
 	scaleFactor := float32(5.0)
 	vertices := freqIntoVertices(freqValues, xShift, largestMag,
 		scaleFactor, []float32{0.3, 0.7, 0.3}, []float32{0.1, 0.3, 0.3})
 
-	title := "Mp3"
+	VAO, VBO, vertexCount := makeBuffers(vertices)
+
+	return []uint32{VAO}, []uint32{VBO}, []int32{vertexCount}
+}
+
+func stackedGraphs(fileName string) ([]uint32, []uint32, []int32) {
+	f, err := os.Open(fileName)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	d, err := mp3.NewDecoder(f)
+	if err != nil {
+		panic(err)
+	}
+
+	freqValues, largestMag := getFreqValues(d, 100, 2, 2)
+	VAOs := []uint32{}
+	VBOs := []uint32{}
+	vertexCounts := []int32{}
+	for i := float32(30.0); i > 1.0; i -= float32(0.2) {
+		c1 := []float32{-i/30.0 + 0.5, -i/30.0 + 0.3, -i/5.0 + 0.2}
+		vertices := freqIntoVertices(freqValues, i/20.0-1.0, largestMag,
+			i/1.5, c1, c1)
+		VAO, VBO, vertexCount := makeBuffers(vertices)
+
+		VAOs = append(VAOs, VAO)
+		VBOs = append(VBOs, VBO)
+		vertexCounts = append(vertexCounts, vertexCount)
+	}
+
+	return VAOs, VBOs, vertexCounts
+}
+
+func readFramesGraph(fileName string) ([]uint32, []uint32, []int32) {
+
+	buff := make([]byte, 10000)
+
+	VAOs := []uint32{}
+	VBOs := []uint32{}
+	vertexCounts := []int32{}
+	for i := 0; i < 25; i++ {
+		f, err := os.Open(fileName)
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		d, err := mp3.NewDecoder(f)
+
+		if err != nil {
+			panic(err)
+		}
+		// Read i amount of frames to advance the buffer
+		for j := 0; j < i*50; j++ {
+			d.Read(buff)
+		}
+		freqValues, largestMag := getFreqValues(d, 100, 2, 2)
+		vertices := freqIntoVertices(freqValues, 0.0, largestMag,
+			float32(i), []float32{0.3, 0.7, 0.3}, []float32{0.1, 0.3, 0.3})
+
+		VAO, VBO, vertexCount := makeBuffers(vertices)
+		VAOs = append(VAOs, VAO)
+		VBOs = append(VBOs, VBO)
+		vertexCounts = append(vertexCounts, vertexCount)
+	}
+
+	return VAOs, VBOs, vertexCounts
+}
+
+func main() {
 	fmt.Println("Starting")
+
+	title := "Mp3"
 	window := glfwBoilerplate.InitGLFW(title,
 		500, 500, false)
 	defer glfw.Terminate()
-	//gl.Enable(gl.MULTISAMPLE) // Enable anti aliasing
 
 	ourShader := shader.MakeShaders("loudGraph.vs", "loudGraph.fs")
 
-	VAO, VBO, vertexCount := makeBuffers(vertices)
-	defer gl.DeleteVertexArrays(1, &VAO)
-	defer gl.DeleteVertexArrays(1, &VBO)
+	fileName := "../kubernetesMixtape.mp3"
+
+	//VAOs, _, vertexCounts := singleGraph(fileName)
+	//VAOs, _, vertexCounts := stackedGraphs(fileName)
+	VAOs, _, vertexCounts := readFramesGraph(fileName)
 
 	lastTime := 0.0
 	numFrames := 0.0
@@ -181,11 +253,11 @@ func main() {
 		gl.Clear(gl.DEPTH_BUFFER_BIT)
 
 		ourShader.Use()
-		gl.BindVertexArray(VAO)
-		//gl.DrawArrays(gl.POINTS, 0, vertexCount)
-		gl.DrawArrays(gl.TRIANGLES, 0, vertexCount)
-		gl.BindVertexArray(0)
-
+		for i, VAO := range VAOs {
+			gl.BindVertexArray(VAO)
+			gl.DrawArrays(gl.TRIANGLES, 0, vertexCounts[i])
+			gl.BindVertexArray(0)
+		}
 		window.SwapBuffers()
 		glfw.PollEvents()
 	}
